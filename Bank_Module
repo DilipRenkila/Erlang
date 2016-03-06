@@ -1,0 +1,47 @@
+-module(dilip_bank).
+-behaviour(gen_server).
+-export([start/0]).
+-export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
+-compile(export_all).
+
+start() -> gen_server:start_link({local,?MODULE},?MODULE,[],[]).
+stop() -> gen_server:call(?MODULE,stop).
+
+new(Account) -> gen_server:call(?MODULE,{naya,Account}).
+deposit(Account,Amount)  -> gen_server:call(?MODULE,{add,Account,Amount}).
+withdraw(Account,Amount) -> gen_server:call(?MODULE,{draw,Account,Amount}).
+
+init([]) -> {ok,ets:new(?MODULE,[])}.
+
+handle_call({naya,Account},_From,Tab) -> 
+
+Reply = case ets:lookup(Tab,Account) of
+[] -> ets:insert(Tab,{Account,0}),{welcome,Account};
+[_] -> {Account,you_are_already_a_customer_of_dilip_bank}
+end,
+{reply,Reply,Tab};
+handle_call({add,Account,X},_From,Tab) ->
+Reply = case ets:lookup(Tab,Account) of
+[] -> not_a_customer;
+[{Account,Balance}] ->
+NewBalance = Balance + X ,
+ets:insert(Tab,{Account,NewBalance}),
+{thanks, Account, your_balance_is,  NewBalance}
+end,
+{reply, Reply, Tab};
+handle_call({draw,Account,X},_From,Tab) ->
+Reply = case ets:lookup(Tab,Account) of
+[] -> not_a_customer;
+[{Account,Balance}] when X =< Balance ->
+ NewBalance = Balance - X,
+ets:insert(Tab, {Account, NewBalance}),
+{thanks, Account, your_balance_is,  NewBalance};
+[{Account,Balance}] -> {sorry,Account,you_only_have,Balance,in_the_bank}
+end,
+{reply, Reply, Tab};
+handle_call(stop, _From, Tab) ->
+    {stop, normal, stopped, Tab}.
+handle_cast(_Msg, State) -> {noreply, State}.
+handle_info(_Info, State) -> {noreply, State}.
+terminate(_Reason, _State) -> ok.
+code_change(_OldVsn, State, Extra) -> {ok, State}.
